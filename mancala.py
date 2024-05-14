@@ -1,4 +1,4 @@
-from player import Player
+from player import Player, RLPlayer
 
 class Mancala:
     NUM_OF_STORES = 14
@@ -15,7 +15,7 @@ class Mancala:
         self.player_0: Player = player_0
         self.player_1: Player = player_1
 
-    def play_game(self) -> None:
+    def play_game(self, rl = False) -> None:
         self._draw_board()
         while True:
             if self.current_player == 0:
@@ -23,22 +23,39 @@ class Mancala:
             else:
                 player = self.player_1
 
+            print(f'Player {self.current_player}\'s move')
             is_move_valid = False
             while not is_move_valid:
-                print(f"Player {self.current_player}'s move")
-                store_to_move = player.make_move(self.stores)
+                store_to_move = player.make_move(self._convert_stores_to_player_perspective()) - 1
+                if self.current_player == 1: store_to_move += 7
                 is_move_valid = self._is_move_valid(store_to_move)
             
+            self._update_q_if_rl(0, 0)
+
             self._update_stores(store_to_move)
             self._draw_board()
 
             if self._is_game_over():
-                print(f"The winner is {self._get_winner()}")
+                print(f'The winner is {self._get_winner()}')
+                self._update_q_if_rl(self.stores[6], self.stores[13])
                 return
 
             self.current_player = 1 - self.current_player
 
+    def _update_q_if_rl(self, reward_0: int, reward_1: int) -> None:
+        if isinstance(self.player_0, RLPlayer):
+                        self.player_0.update_q(self.stores, reward_0)
+        elif isinstance(self.player_1, RLPlayer):
+            self.player_1.update_q(self._convert_stores_to_player_perspective(), reward_1)
+
+    def _convert_stores_to_player_perspective(self) -> list[int]:
+        if self.current_player == 0:
+            return self.stores
+        return self.stores[7:] + self.stores[0:7]
+
     def _is_move_valid(self, store_to_move: int) -> bool:
+        if self.stores[store_to_move] <= 0:
+            return False
         if self.current_player == 0:
             if store_to_move < 0 or store_to_move > 5:
                 return False
@@ -100,11 +117,11 @@ class Mancala:
         return self.player_1
     
     def _draw_board(self):
-        player_0_board = "".join([f"[{store}]" for store in self.stores[5::-1]])
-        player_1_board = "".join([f"[{store}]" for store in self.stores[7:13]])
+        player_0_board = ''.join([f'[{store}]' for store in self.stores[5::-1]])
+        player_1_board = ''.join([f'[{store}]' for store in self.stores[7:13]])
 
-        print("===============================================")
-        print(f"    {player_0_board}    ")
-        print(f"[{self.stores[6]}]                        [{self.stores[13]}]")
-        print(f"    {player_1_board}    ")
-        print("===============================================")
+        print('===============================================')
+        print(f'    {player_0_board}    ')
+        print(f'[{self.stores[6]}]                        [{self.stores[13]}]')
+        print(f'    {player_1_board}    ')
+        print('===============================================')
